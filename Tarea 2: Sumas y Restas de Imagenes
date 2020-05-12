@@ -1,0 +1,222 @@
+import time
+import colorsys as cs
+from PIL import Image
+
+imagen0 = Image.open('C:/Users/fisch/Desktop/montaje.png')
+original = imagen0.load()
+imagen1 = Image.open('C:/Users/fisch/Desktop/original.png')
+montaje = imagen1.load()
+
+width0, height0 = imagen0.size
+width1, height1 = imagen1.size
+
+######################## RECORTE
+if imagen0.size != imagen1.size:
+    print("Aviso: Las imágenes no son de igual tamaño, la imagen final sera recortada")
+    
+if width0 < width1:
+    widthf=width0
+else:
+    widthf=width1
+    
+if height0 < height1:
+    heightf=height0
+else:
+    heightf=height1
+######################## RECORTE
+
+#------------------------------------------------------------------------ 
+
+#       SUMA RGB CLAMPEADO
+def Sum_RGB_Clamp(imagen0, imagen1, original, montaje, widthf, heightf):
+    for x in range(widthf):
+        for y in range(heightf):
+            RGB_=[]
+            for i in range(3):
+                suma = original[x,y][i] + montaje[x,y][i]
+                if suma > 255:
+                    suma = 255
+                RGB_.append(suma)
+            original[x,y] = (RGB_[0],RGB_[1],RGB_[2])
+    imagen0.show()
+#       FIN SUMA RGB CLAMPEADO
+
+#-------------------------------------------------------------------------
+
+##       SUMA RGB PROMEDIADO
+def Sum_RGB_Prom(imagen0, imagen1, original, montaje, widthf, heightf):    
+    for x in range(widthf):
+        for y in range(heightf):
+            RGB_=[]
+            for i in range(3):
+                suma = (original[x,y][i] + montaje[x,y][i])/2
+                if suma > 255:
+                    suma = 255
+                    print("Aviso: Algun color sobrepasó el 255 y se saturo")
+                RGB_.append(suma)
+            original[x,y] = (round(RGB_[0]),round(RGB_[1]),round(RGB_[2]))
+    imagen0.show()
+##       FIN SUMA RGB PROMEDIADO
+#
+##------------------------------------------------------------------------
+#
+##       CUASI-RESTA CLAMPEADA
+def CuasiResta_RGB_Clamp(imagen0, imagen1, original, montaje, widthf, heightf):
+    for x in range(widthf):
+        for y in range(heightf):
+            RGB_=[]
+            for i in range(3):
+                suma = original[x,y][i] - montaje[x,y][i]
+                if suma < 0:
+                    suma = 0
+                RGB_.append(suma)
+            original[x,y] = (RGB_[0],RGB_[1],RGB_[2])
+    imagen0.show()
+##       FIN CUASI-RESTA CLAMPEADA
+#
+##------------------------------------------------------------------------
+#
+##       CUASI-RESTA PROMEDIADA
+def CuasiResta_RGB_Prom(imagen0, imagen1, original, montaje, widthf, heightf):
+    for x in range(widthf):
+        for y in range(heightf):
+            RGB_=[]
+            for i in range(3):
+                suma = (original[x,y][i] - montaje[x,y][i])/2 + 255/2
+                if suma > 255:
+                    suma = 255
+                    print("Aviso: Algun color sobrepasó el 255 y se saturo")
+                if suma < 0:
+                    suma =0
+                    print("Aviso: Algun color subpaso el 0 y se darkeo")
+                RGB_.append(suma)
+            original[x,y] = (round(RGB_[0]),round(RGB_[1]),round(RGB_[2]))
+    imagen0.show()
+##       FIN CUASI-RESTA PROMEDIADA
+#
+##------------------------------------------------------------------------
+#
+##       INTERPOLACION YIQ
+def Iterpolacion_YIQ(imagen0, imagen1, original, montaje, widthf, heightf):
+    for x in range(widthf):
+        for y in range(heightf):
+            RGBnormO=[]
+            RGBnormM=[]
+            for i in range(3):
+                RGBnormO.append((original[x,y][i])/255)
+                RGBnormM.append((montaje[x,y][i])/255)
+            YIQnormO=cs.rgb_to_yiq(RGBnormO[0],RGBnormO[1],RGBnormO[2])
+            YIQnormM=cs.rgb_to_yiq(RGBnormM[0],RGBnormM[1],RGBnormM[2])
+            
+            YIQn=[]
+            
+            if (YIQnormO[0]+YIQnormM[0]) != 0:
+                YIQn.append((YIQnormO[0]+YIQnormM[0])/2)
+                for i in range(1,3):
+                    YIQn.append((YIQnormO[0]*YIQnormO[i]+YIQnormM[0]*YIQnormM[i])/(YIQnormO[0]+YIQnormM[0]))
+            else:
+                YIQn.append(0)
+                YIQn.append(0)
+                YIQn.append(0)
+            
+            RGBn=cs.yiq_to_rgb(YIQn[0],YIQn[1],YIQn[2])
+            original[x,y] = (round(RGBn[0]*255),round(RGBn[1]*255),round(RGBn[2]*255))  
+    imagen0.show()
+##       FIN INTERPOLACION YIQ
+#
+##-----------------------------------------------------------------------
+#
+##       IF BRIGHTER
+def IfBrighter(imagen0, imagen1, original, montaje, widthf, heightf):
+    for x in range(widthf):
+        for y in range(heightf):
+            RGBnormO=[]
+            RGBnormM=[]
+            for i in range(3):
+                RGBnormO.append((original[x,y][i])/255)
+                RGBnormM.append((montaje[x,y][i])/255)
+            YIQnormO=cs.rgb_to_yiq(RGBnormO[0],RGBnormO[1],RGBnormO[2])
+            YIQnormM=cs.rgb_to_yiq(RGBnormM[0],RGBnormM[1],RGBnormM[2])
+            
+            YIQn=[]
+            
+            if (YIQnormO[0]>=YIQnormM[0]) != 0:
+                YIQn=YIQnormO
+            else:
+                YIQn=YIQnormM
+                        
+            RGBn=cs.yiq_to_rgb(YIQn[0],YIQn[1],YIQn[2])
+            original[x,y] = (round(RGBn[0]*255),round(RGBn[1]*255),round(RGBn[2]*255))  
+    imagen0.show()
+##       FIN IF BRIGHTER
+#
+##-----------------------------------------------------------------------
+#
+##       IF DARKER
+def IfDarker(imagen0, imagen1, original, montaje, widthf, heightf):
+    for x in range(widthf):
+        for y in range(heightf):
+            RGBnormO=[]
+            RGBnormM=[]
+            for i in range(3):
+                RGBnormO.append((original[x,y][i])/255)
+                RGBnormM.append((montaje[x,y][i])/255)
+            YIQnormO=cs.rgb_to_yiq(RGBnormO[0],RGBnormO[1],RGBnormO[2])
+            YIQnormM=cs.rgb_to_yiq(RGBnormM[0],RGBnormM[1],RGBnormM[2])
+            
+            YIQn=[]
+            
+            if (YIQnormO[0]<=YIQnormM[0]) != 0:
+                YIQn=YIQnormO
+            else:
+                YIQn=YIQnormM
+                        
+            RGBn=cs.yiq_to_rgb(YIQn[0],YIQn[1],YIQn[2])
+            original[x,y] = (round(RGBn[0]*255),round(RGBn[1]*255),round(RGBn[2]*255))  
+    imagen0.show()
+##       FIN IF DARKER
+#
+##---------------------------------------------------------------------------
+#
+##      Switch de operaciones    
+def ImageOp(b,imagen0, imagen1, original, montaje, widthf, heightf):
+    switcher = {
+        1: Sum_RGB_Clamp,
+        2: Sum_RGB_Prom,
+        3: CuasiResta_RGB_Clamp,
+        4: CuasiResta_RGB_Prom,
+        5: Iterpolacion_YIQ,
+        6: IfBrighter,
+        7: IfDarker
+    }
+    # Get the function from switcher dictionary
+    func = switcher.get(b, lambda: "Invalid function")
+    print("Working on, please wait...")
+    # Execute the function
+    func(imagen0, imagen1, original, montaje, widthf, heightf)
+##      Fin Switch de operaciones
+
+
+## Inicio del programa
+a=0
+while a==0:
+    print("------------------------------------------")
+    c=input("Enter number between 0-7, according to the desired image operation presented in the following list:\n\n0: Quit\n1: Sum_RGB_Clamp\n2: Sum_RGB_Prom\n3: CuasiResta_RGB_Clamp\n4: CuasiResta_RGB_Prom\n5: Iterpolacion_YIQ\n6: IfBrighter\n7: IfDarker\n\nType your entry: ")
+    try:
+        b=int(c)
+        if b>=1 and b<=7:
+            ImageOp(b,imagen0, imagen1, original, montaje, widthf, heightf)
+            
+        elif b==0: 
+            a=1
+        else:
+            print("\nWrong entry =/= [0-7]")
+            time.sleep(1)
+            print("Wait for restart...")
+            time.sleep(2.5)
+            
+    except ValueError:
+        print("Enter number, not string")
+        time.sleep(1)
+        print("Wait for restart...")
+        time.sleep(2.5)
