@@ -1,0 +1,45 @@
+from PIL import Image
+
+imagen = Image.open('C:/Users/fisch/Desktop/montaje.png')
+px = imagen.load()
+
+alpha=1.1
+beta1=1.1
+beta2=1.1
+
+width, height = imagen.size
+
+for x in range(width):
+    for y in range(height):
+        RGBnorm=[] 
+        for i in range(3):
+            RGBnorm.append((px[x,y][i])/255)
+   
+        YIQ=[]
+        YIQ.append(0.299*RGBnorm[0]+0.587*RGBnorm[1]+0.114*RGBnorm[2])
+        YIQ.append(0.595716*RGBnorm[0]-0.274453*RGBnorm[1]-0.321263*RGBnorm[2])
+        YIQ.append(0.211456*RGBnorm[0]-0.522591*RGBnorm[1]+0.311135*RGBnorm[2])
+      
+        YIQ[0]=YIQ[0]*alpha
+        YIQ[1]=YIQ[1]*beta1
+        YIQ[2]=YIQ[2]*beta2
+        
+        if YIQ[0]>1:
+            YIQ[0]=1
+        if YIQ[1]>0.5957:
+            YIQ[1]=0.5957
+        if YIQ[1]<-0.5957:
+            YIQ[1]=-0.5957
+        if YIQ[2]>0.5226:
+            YIQ[2]=0.5226
+        if YIQ[2]<-0.5226:
+            YIQ[2]=-0.5226
+        
+        RGB=[]
+        RGB.append((YIQ[0]+0.9563*YIQ[1]+0.6210*YIQ[2])*255)
+        RGB.append((YIQ[0]-0.2721*YIQ[1]-0.6474*YIQ[2])*255)
+        RGB.append((YIQ[0]-1.1070*YIQ[1]+1.7046*YIQ[2])*255)
+        
+        px[x,y]=(round(RGB[0]),round(RGB[1]),round(RGB[2]))
+
+imagen.show()
