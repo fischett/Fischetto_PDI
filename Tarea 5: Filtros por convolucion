@@ -1,0 +1,216 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Sat Jun  6 19:17:47 2020
+
+@author: fisch
+"""
+
+import numpy as np
+import matplotlib.pyplot as plt
+import cv2
+import colorsys as cs
+import time
+
+def fftIm(imbnb):
+    plt.figure(figsize=(5*2, 5*2), constrained_layout=False)
+    im2=np.fft.fft2(imbnb)
+    imSpec=np.fft.fftshift(im2)
+    plt.subplot(1,2,1), plt.imshow(imbnb, "gray"), plt.title("Original Image")
+    plt.subplot(1,2,2), plt.imshow(np.log(1+np.abs(imSpec)), "gray"), plt.title("FFTshifted Spectrum")
+    plt.show()
+    return im
+
+#Convertir a YIQ
+def RGBtoYIQ(im,wIm,hIm):
+    YIQ = np.zeros((wIm,hIm,3),dtype=np.float64)
+    #convertir a YIQ
+    for x in range(wIm):
+        for y in range(hIm):
+            RGBnorm=[]
+            for i in range(3):
+                RGBnorm.append(im[x,y][i]/255)
+            YIQ[x,y]=cs.rgb_to_yiq(RGBnorm[0],RGBnorm[1],RGBnorm[2])
+    return YIQ
+
+#convertir a RGB
+def YIQtoRGB(YIQ,wIm,hIm):
+    RGB=np.zeros((wIm,hIm,3),dtype=np.float64)
+    RGBnorm=np.zeros((wIm,hIm,3),dtype=np.float64)
+    for x in range(wIm):
+        for y in range(hIm):
+            RGBnorm[x,y]=cs.yiq_to_rgb(YIQ[x,y,0],YIQ[x,y,1],YIQ[x,y,2])
+            rgb=[]
+            for i in range(3):
+                rgb.append(int(RGBnorm[x,y,i]*255))
+                
+            RGB[x,y]=rgb
+    return RGBnorm, RGB
+
+#Seleccion de Kernels
+def Kernel():
+    Usel=1
+    while Usel!=0:
+        print("------------------------------------------")
+        Usel=int(input("Enter number between 0-7, according to the desired kernel to convolute the image:\n\n0: Quit\n1: 3x3-Llano\n2: Barlett3x3\n3: Barlett5x5\n4: Barlett7x7\n5: Laplaciano4\n6: Laplaciano8\n7: Sobel\n\nType your entry: "))#\n3: CuasiResta_RGB_Clamp\n4: CuasiResta_RGB_Prom\n5: Iterpolacion_YIQ\n6: IfBrighter\n7: IfDarker\n\nType your entry: ")
+        try:
+            if Usel>=1 and Usel<=7:
+                K=ImageOp(Usel)
+                while Usel != 0:
+                    Usel=int(input("Do you want con convolute the previous kernel with itself or any other kernel?\n0: no\n1: yes\n\nType your entry: "))
+                    if Usel==1:
+                        Usel=int(input("Choose whitch Kernel you want con convolute the previous one:\n\n0: Quit\n1: 3x3-Llano\n2: Barlett3x3\n3: Barlett5x5\n4: Barlett7x7\n5: Laplaciano4\n6: Laplaciano8\n7: Sobel\n\nType your entry: "))
+                        times=int(input("Choose how many times you want con convolute with this Kernel:"))
+                        for u in range(times):
+                            Knew=ImageOp(Usel)
+                            wK,hK = np.shape(K)
+                            wKnew,hKnew = np.shape(Knew)
+                            
+                            #La convolucion de Kernel con Kernel se debe hacer sobre el de mayor tamaño
+                            w=np.maximum(wK,wKnew)
+                            h=np.maximum(hK,hKnew)
+                            if w==wKnew:
+                                Kbase=Knew
+                                Kconv=K                                
+                            ## LOS KERNELS DEBEN SER SIEMPRE CUADRADOS
+                            K=convolucionar(Kbase,Kconv,w,h)
+                        
+                    elif Usel!=0:
+                        print("\nWrong entry =/= [0-1]")
+                        time.sleep(1)
+                        print("Wait for restart...")
+                        time.sleep(2.5)
+                
+            elif Usel==0:
+                print("Quitting...")
+                K=0
+            else:
+                print("\nWrong entry =/= [0-7]")
+                time.sleep(1)
+                print("Wait for restart...")
+                time.sleep(2.5)
+                
+        except ValueError:
+            print("Enter number, not string")
+            time.sleep(1)
+            print("Wait for restart...")
+            time.sleep(2.5)
+    return K
+
+#Kernels
+def K3x3_llano():
+    A=np.array([1,1,1])
+    B=np.outer(A,A)
+    tot=np.sum(B)
+    K=B/tot
+    return K
+
+def Barlett3x3():
+    A=np.array([1,2,1])
+    B=np.outer(A,A)
+    tot=np.sum(B)
+    K=B/tot
+    return K
+
+def Barlett5x5():
+    A=np.array([1,4,6,4,1])
+    B=np.outer(A,A)
+    tot=np.sum(B)
+    K=B/tot
+    return K
+
+def Barlett7x7():
+    A=np.array([1,6,15,20,15,6,1])
+    B=np.outer(A,A)
+    tot=np.sum(B)
+    K=B/tot
+    return K
+    
+def Laplaciano4():
+    K= np.array([[ 0,-1, 0],
+                 [-1, 4,-1],
+                 [ 0,-1, 0]])
+    return K
+
+def Laplaciano8():
+    K= np.array([[-1,-1,-1],
+                 [-1, 8,-1],
+                 [-1,-1,-1]])
+    return K
+
+def Sobel():
+    c=int(input("N: 0\nE: 1\nS: 2\nW: 3\nNE: 4\nSE: 5\nSW: 6\nNW: 7\n\nType your entry: "))
+    if c < 3 and c >= 0: plano=0
+    elif c < 8 and c >= 3: plano=1
+    else: c=0
+    
+    #En el plano [:,:,0] se encuentra Sobel Norte
+    #En el plano [:,:,1] se encuentra Sober Nor Este
+    #Con la variable 'c' se determina el plano y cuantas veces se rota la matriz
+    N_NE= np.array([[[1,0],[2,1],[1,2]],
+                 [[0,-1],[0,0],[0,1]],
+                 [[-1,-2],[-2,-1],[-1,0]]])
+    
+    K=np.rot90(N_NE, -c, axes=(0,1))[:,:,plano]
+    return K
+
+def convolucionar(Original, K, wIm, hIm):
+    wK, hK = np.shape(K)
+    for xIm in range(wIm):
+        for yIm in range(hIm):
+            px=0
+            for xK in range(wK):
+                for yK in range(hK):
+                    ax = int(xIm-(wK-1)/2+xK)
+                    ay = int(yIm-(hK-1)/2+yK)
+                    
+                    if ax < 0: ax=int(0)
+                    if ax >= wIm: ax=int(wIm-1)
+                    if ay < 0: ay=int(0)
+                    if ay >= hIm: ay=int(hIm-1)
+                    
+                    if Original.ndim ==3: px = px + Original[ax,ay,0]*K[xK,yK]
+                    if Original.ndim ==2: px = px + Original[ax,ay]*K[xK,yK]
+                    if px < 0: px=0
+                    if px > 1: px=1
+            if Original.ndim ==3: Original[xIm,yIm,0]=px
+            if Original.ndim ==2: Original[xIm,yIm]=px
+    return Original
+
+#Switch user selection interpretation of Kernel
+def ImageOp(b):
+    switcher = {
+        1: K3x3_llano,
+        2: Barlett3x3,
+        3: Barlett5x5,
+        4: Barlett7x7,
+        5: Laplaciano4,
+        6: Laplaciano8,
+        7: Sobel
+    }
+    func = switcher.get(b, lambda: "Invalid function")
+    K=func()
+    return K
+    
+
+#Progama
+imagen="gota5.-Filtered.png"    
+im=np.asarray(cv2.imread(imagen))
+imbnb=cv2.imread(imagen,0)
+cv2.imwrite(imagen+"-bnw.png",imbnb)
+fftIm(imbnb)
+
+K = Kernel()
+
+if not np.isscalar(K):
+    print("Working on, please wait...\n\n")
+    wIm, hIm , dIm= np.shape(im)
+    YIQ = RGBtoYIQ(im, wIm, hIm)
+    YIQ = convolucionar(YIQ,K,wIm,hIm)
+    RGBnorm, RGB = YIQtoRGB(YIQ,wIm,hIm)
+    
+    gray = np.dot(RGB[...,:3], [0.299, 0.587, 0.114])/255
+    
+    plt.imsave(imagen[-len(imagen):-3]+"-Filtered.png",gray, cmap="gray")
+    imN=cv2.imread(imagen[-len(imagen):-3]+"-Filtered.png",0)
+    
+    fftIm(imN)
