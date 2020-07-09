@@ -1,0 +1,107 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Jun  9 17:46:54 2020
+
+@author: fisch
+"""
+
+import numpy as np
+import matplotlib.pyplot as plt
+import cv2
+
+def KernelStr():
+    Usel=int(input("Select which kernel structure you want to use for morphological process:\n\n0: Quit\n1: Square\n2: Cross\n3: rombo 5x5\n\nType your entry: "))
+
+    if Usel==1:
+        k=np.array([[-1,-1],[0,-1],[1,-1],[-1,0],[0,0],[1,0],[-1,1],[0,1],[1,1]])
+    elif Usel==2:
+        k=np.array([[0,-1],[-1,0],[0,0],[1,0],[0,1]])
+    elif Usel==3:
+        k=np.array([[0,-2],[-1,-1],[0,-1],[1,-1],[-2,0],[-1,0],[0,0],[1,0],[2,0],[-1,1],[0,1],[1,1],[0,2]])
+    else:
+        k=0
+        xk=0
+        yk=0
+    if not np.isscalar(k):
+        yk, xk = np.shape(k)
+    return k, xk, yk
+
+def MorfProcess(Original,wIm,hIm,MorfSel,k,Xk,Yk):
+    New=np.zeros((wIm,hIm))
+    for xIm in range(wIm):
+            for yIm in range(hIm):
+                px=[]
+                for yK in range(Yk):
+                    ax = int(xIm+k[yK,0])
+                    ay = int(yIm+k[yK,1])
+                    
+                    if ax < 0: ax=int(0)
+                    if ax >= wIm: ax=int(wIm-1)
+                    if ay < 0: ay=int(0)
+                    if ay >= hIm: ay=int(hIm-1)
+                    
+                    px.append(Original[ax,ay])
+
+                if MorfSel == 1:
+                    New[xIm,yIm]=np.amin(px)
+                if MorfSel == 2:
+                    New[xIm,yIm]=np.amax(px)
+                if MorfSel == 7:
+                    New[xIm,yIm]=np.median(px)
+
+    return New
+
+def MorfAlgorithm(imbnb,wIm,hIm,MorfSel,k,xk,yk):
+    print("\nWorking on...")
+    if MorfSel == 0:
+        print("Quitting program...")
+        ImNew = 0
+    elif MorfSel == 1 or MorfSel == 2 or MorfSel == 7:
+        ImNew = MorfProcess(imbnb,wIm,hIm,MorfSel,k,xk,yk)
+    elif MorfSel==3:
+        ImNew = MorfProcess(imbnb,wIm,hIm,1,k,xk,yk)
+        ImNew = MorfProcess(ImNew,wIm,hIm,2,k,xk,yk)
+    elif MorfSel==4:
+        ImNew = MorfProcess(imbnb,wIm,hIm,2,k,xk,yk)
+        ImNew = MorfProcess(ImNew,wIm,hIm,1,k,xk,yk)
+    elif MorfSel==5:
+        ImNew = MorfProcess(imbnb,wIm,hIm,2,k,xk,yk)
+        ImNew = ImNew - imbnb
+    elif MorfSel==6:
+        ImNew = MorfProcess(imbnb,wIm,hIm,1,k,xk,yk)
+        ImNew = imbnb - ImNew
+    elif MorfSel==8:
+        ImNew = MorfProcess(imbnb,wIm,hIm,1,k,xk,yk)
+        ImNew = MorfProcess(ImNew,wIm,hIm,2,k,xk,yk)
+        ImNew = imbnb - ImNew
+    else:
+        print("Wrong entry, quitting program.")
+        ImNew = 0
+    return ImNew
+    
+
+imagen="Guia4_problema1parte1.png" #Ruta de la imagen a tratar
+
+imbnb = cv2.imread(imagen,0) #Abro la imagen en blanco y negro (puede ser .tiff)
+wIm, hIm = np.shape(imbnb)
+a=1
+while not a==0:
+    k, xk, yk = KernelStr() #Selecciono tipo de "Kernel"
+    ImNew=imbnb
+    if not np.isscalar(k):
+        plt.figure(figsize=(5*2, 5*2), constrained_layout=False)
+        plt.subplot(1,2,1), plt.imshow(imbnb, "gray")
+        plt.show()
+        
+        MorfSel = int(input("Select which morphological (grayscale) process you want to apply to the image:\n\n0: Quit\n1: Erosionar\n2: Dilatar\n3: Apertura\n4: Cierre\n5: Borde exterior\n6: Borde interior\n7: Mediana\n8: TopHat\n\nType your entry: "))
+        ImNew = MorfAlgorithm(imbnb,wIm,hIm,MorfSel,k,xk,yk)
+        
+        if not np.isscalar(ImNew):
+            plt.figure(figsize=(5*2, 5*2), constrained_layout=False)
+            plt.subplot(1,2,1), plt.imshow(imbnb, "gray")
+            plt.subplot(1,2,2), plt.imshow(ImNew, "gray") 
+            plt.imsave(imagen[-len(imagen):-4]+"-Filtered.png",ImNew, cmap="gray")
+            plt.show()
+    a=int(input("Do you want to close the program or to process either the procesed image or the original again?\n\n0: Quit\n1: Process the new image\n2: Process the original image\n\nType your entry: "))
+    if a==1:
+        imbnb=ImNew
