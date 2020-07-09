@@ -1,0 +1,57 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Thu May 14 00:40:36 2020
+
+@author: fisch
+"""
+import numpy as np
+import matplotlib.pyplot as plt
+import cv2
+import os.path
+#Ruta se puede dejar en blanco (ej: "") si el programa de Python corre en la misma carpeta que las imagenes
+Ruta='C:\\Users\\fisch\\Desktop\\'
+imagen="CIRCULOCENT.png"
+
+plt.figure(figsize=(5*2, 5*2), constrained_layout=False)
+a=cv2.imread(Ruta+imagen,0)
+im2=np.fft.fft2(a)
+im3=np.fft.fftshift(im2)
+plt.subplot(1,2,1), plt.imshow(a, "gray"), plt.title("Original Image")
+plt.subplot(1,2,2), plt.imshow(np.log(1+np.abs(im3)), "gray"), plt.title("FFTshifted Spectrum")
+plt.imsave(Ruta+"FFT-"+imagen, np.log(1+np.abs(im3)), cmap="gray")
+plt.show()
+
+
+########  Ingresar imagen modificada 
+#Aca se necesita modificar en paint u otro editor de imagenes, el espectro de frecuencias guardado en 
+#los pasos anteriores, y modificar el nombre de la imagen agregando al final "-new"
+attempt=True
+while attempt:
+    try:
+        Usel=int(input('Please, edit FFT image and save it with the same name + "-new"\n\nEnter "1" when edited FFT image is ready or "0" to quit program\nYour entry: '))
+    except:
+        Usel=0
+        print("\nWrong entry")
+    if Usel != 0:
+        attempt=not os.path.exists("FFT-"+imagen[-len(imagen):-4]+"-new.png")
+
+        if attempt:
+            print("\nImage not found, check for correct renaming...")
+    else:
+        attempt=False
+        
+if Usel != 0:
+    b=cv2.imread(Ruta+"FFT-"+imagen[-len(imagen):-4]+"-new.png",0)
+    im4=b*im3
+    im5=np.fft.ifftshift(im4)
+    im6=np.fft.ifft2(im5)
+    plt.figure(figsize=(5*2, 5*2), constrained_layout=False)
+    plt.subplot(2,2,1), plt.imshow(np.log(1+np.abs(im3)), "gray"), plt.title("Original FFT Spectrum")
+    plt.subplot(2,2,2), plt.imshow(np.log(1+np.abs(im4)), "gray"), plt.title("Modified FFT Spectrum")
+    plt.subplot(2,2,3), plt.imshow(a, "gray"), plt.title("Original Image")
+    plt.subplot(2,2,4), plt.imshow(abs(im6), "gray"), plt.title("Modified FFT Spectrum")
+    plt.imsave(Ruta+"FFT-"+imagen[-len(imagen):-4]+"-new-I.png", abs(im6), cmap="gray")
+    plt.show()
+
+else:
+    print("Quitting program...")
