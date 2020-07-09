@@ -1,0 +1,271 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Jul  3 15:17:13 2020
+
+@author: fisch
+"""
+
+import numpy as np
+import matplotlib.pyplot as plt
+from PIL import Image
+import math as mt
+import random
+
+#Upsamplig - Vecino mas cercano
+def Up_Neighbour(imbnb,wIm,hIm):
+    factor=int(input("Ingrese el factor por el cual quiere agrandar la imagen: "))
+    imnew = np.zeros((factor*wIm,factor*hIm), dtype=int)
+    for x in range(wIm):
+        for y in range(hIm):
+            for dx in range(factor):
+                for dy in range(factor):
+                    imnew[factor*x+dx,factor*y+dy]=imbnb[x,y]
+    com="-Upsampling_CNeightbour-x"+str(factor)
+    return imnew, com
+
+#Interpolacion bilineal
+def Up_Bilineal(imbnb,wIm,hIm):
+    factor=int(input("Ingrese el factor por el cual quiere agrandar la imagen: "))
+    imnew = np.zeros((factor*wIm,factor*hIm), dtype=int)
+    for x in range(wIm):
+        for y in range(hIm):
+            for dx in range(factor):
+                for dy in range(factor):
+                    Kx=factor*x
+                    Ky=factor*y
+                    dX=Kx+dx
+                    dY=Ky+dy
+                    xSig=x+1
+                    ySig=y+1
+                    if xSig>=wIm: xSig=x
+                    if ySig>=hIm: ySig=y
+                    A=(dX-Kx)/factor
+                    B=(dY-Ky)/factor
+                    imnew[dX,dY]=(1-A)*(1-B)*imbnb[x,y]+A*(1-B)*imbnb[xSig,y]+(1-A)*B*imbnb[x,ySig]+A*B*imbnb[xSig,ySig]
+    com="-Upsampling_Bilineal-x"+str(factor)
+    return imnew, com
+                
+#Interpolacion bicubica
+def Up_Bicubico(imbnb,wIm,hIm):
+    factor=int(input("Ingrese el factor por el cual quiere agrandar la imagen: "))
+    imnew = np.zeros((factor*wIm,factor*hIm), dtype=int)
+    for x in range(wIm):
+        for y in range(hIm):
+            for dx in range(factor):
+                for dy in range(factor):
+                        Kx=factor*x
+                        Ky=factor*y
+                        dX=Kx+dx
+                        dY=Ky+dy
+                        a=-0.5
+                        for m in range(-1,3):
+                            for n in range(-1,3):
+                                xDist=abs((dX-(Kx+factor*m))/factor)
+                                yDist=abs((dY-(Ky+factor*n))/factor)    
+                                
+                                if xDist <= 1:    coefX=(a+2)*xDist**3-(a+3)*xDist**2+1
+                                elif xDist > 1 and xDist < 2: coefX=a*xDist**3-5*a*xDist**2+8*a*xDist-4*a
+                                else: coefX=0
+                                
+                                if yDist <= 1:    coefY=(a+2)*yDist**3-(a+3)*yDist**2+1
+                                elif yDist > 1 and yDist < 2: coefY=a*yDist**3-5*a*yDist**2+8*a*yDist-4*a
+                                else: coefY=0
+                                
+                                X=x+m
+                                Y=y+n
+                                if X>=wIm or X<0: X=x
+                                if Y>=hIm or Y<0: Y=y
+                                imnew[dX,dY] += imbnb[X,Y]*coefX*coefY
+
+    com="-Bicubico_a="+str(a)+"-x"+str(factor)
+    return imnew, com
+    
+
+#Downsampling x2 primer vecino
+def Dw_Neighbour(imbnb,wIm,hIm):
+    factor=int(float(input("Ingrese el factor por el cual quiere achicar la imagen (entero): ")))
+    imnew=np.zeros((mt.floor(wIm/factor),mt.floor(hIm/factor)), dtype=int)
+    wImn, hImn = np.shape(imnew)
+    for x in range(wImn):
+        for y in range(hImn):
+            imnew[x,y]=imbnb[int(factor*x),int(factor*y)]
+    com="-Downsampling_PrimerVecino-x"+str(round(1/factor,3))
+    return imnew, com
+
+#Downsampling x3 bilineal
+def Dw_Bilineal(imbnb,wIm,hIm):
+    factor=int(float(input("Ingrese el factor por el cual quiere achicar la imagen: ")))
+    imnew=np.zeros((mt.floor(wIm/factor),mt.floor(hIm/factor)))
+    wImn, hImn = np.shape(imnew)
+    
+    for x in range(wImn):
+        for y in range(hImn):
+            if int(factor*x) >= wIm:
+                X=wIm
+            else:
+                X=int(factor*x)
+            if int(factor*y) >= hIm:
+                Y=hIm
+            else:   
+                Y=int(factor*y)
+                
+            if (factor%2) == 0:
+            
+                imnew[x,y]=0.25*(imbnb[X,Y]+imbnb[X+1,Y]+imbnb[X,Y+1]+imbnb[X+1,Y+1])
+            elif (factor%2) == 1:
+                imnew[x,y]=imbnb[int((factor-1)/2)*X,int((factor-1)/2)*Y]
+    
+    com="-Downsampling_Bilineal-x"+str(round(1/factor,3))
+    return imnew, com
+
+#Downsamplig bicubico
+def Dw_Bicubico(imbnb,wIm,hIm):
+    factor=int(float(input("Ingrese el factor por el cual quiere achicar la imagen: ")))
+    imnew=np.zeros((mt.floor(wIm/factor),mt.floor(hIm/factor)))
+    wImn, hImn = np.shape(imnew)
+    a=-0.5
+    for x in range(wImn):
+        for y in range(hImn):
+            if int(factor*x) >= wIm:
+                X=wIm
+            else:
+                X=int(factor*x)
+            if int(factor*y) >= hIm:
+                Y=hIm
+            else:   
+                Y=int(factor*y)
+                
+            for m in range(-1,3):
+                for n in range(-1,3):
+                    
+                    if (factor%2)==0: 
+                        center=1/2
+                        M=m
+                        N=n
+                        X=factor*x+m
+                        Y=factor*y+n
+                        
+                    elif (factor%2)==1: 
+                        center=0
+                        if m==-1 or m==2:
+                            X=factor*x+m
+                            if m==2: X=factor*x+1
+                            M=1
+                        if n==-1 or n==2:
+                            Y=factor*y+n
+                            if n==2: Y=factor*y+1
+                            N=1
+                        if m==0 or m==1:
+                            X=factor*x
+                            M=0
+                        if n==0 or n==1:
+                            Y=factor*y
+                            N=0
+                    if X>=wIm or X<0: X=factor*x
+                    if Y>=hIm or Y<0: Y=factor*y
+                    
+                    xDist=abs(center-M)
+                    yDist=abs(center-N)    
+                                        
+                    if xDist <= 1:    coefX=(a+2)*xDist**3-(a+3)*xDist**2+1
+                    elif xDist > 1 and xDist < 2: coefX=a*xDist**3-5*a*xDist**2+8*a*xDist-4*a
+                    else: coefX=0
+    
+                    if yDist <= 1:    coefY=(a+2)*yDist**3-(a+3)*yDist**2+1
+                    elif yDist > 1 and yDist < 2: coefY=a*yDist**3-5*a*yDist**2+8*a*yDist-4*a
+                    else: coefY=0
+    
+                    imnew[x,y] += imbnb[X,Y]*coefX*coefY
+    
+    com="-Downsampling_Bicubico_a="+str(a)+"-x"+str(round(1/factor,3))
+    return imnew, com
+
+#Cuantizacion uniforme
+def Cuant_Uniforme(imbnb,wIm,hIm):
+    res=int(input("Ingrese la resolucion del espectro de colores que desea (1,255): "))
+    if res<1: 
+        res=1
+        print("\nLa resolucion no puede ser menor a 1. Procesando la imagen con resolucion=1 ...")
+    elif res>255: 
+        res=255
+        print("\nLa resolucion no puede ser mayor a 255. Procesando la imagen con resolucion=255 ...")
+    imnew=np.zeros((wIm,hIm))
+    for x in range(wIm):
+        for y in range(hIm):
+            for n in range(res):
+                if imbnb[x,y] >= 255*n/res and imbnb[x,y] < 255*(n+1)/res:
+                    imnew[x,y]=int(255*n/res)
+    
+    com="-Cuantizacion_Uniforme-res="+str(res)
+    return imnew, com
+    
+
+#Cuanizacion Ditherin aleatorio
+def Cuant_DitherAleatorio(imbnb,wIm,hIm):
+    print("\nCuanto mas grande sea la imagen, mejor funciona!")
+    imnew=np.zeros((wIm,hIm))
+    for x in range(wIm):
+        for y in range(hIm):
+            if imbnb[x,y] < random.randint(0,255):
+                imnew[x,y]=0
+            else:   imnew[x,y]=255
+    
+    com="-Dithering_Aleatorio-"
+    return imnew, com
+
+#Difusion del error
+def Cuant_DiffError(imbnb,wIm,hIm):
+    print("\nCuanto mas grande sea la imagen, mejor funciona!")
+    imnew=np.zeros((wIm,hIm))
+    for y in range(hIm):
+        error=0
+        for x in range(wIm):
+            pxErr=imbnb[x,y]+error
+            if pxErr <= 127: imnew[x,y]=0
+            else: imnew[x,y]=255
+            error+=imbnb[x,y]-imnew[x,y]
+           
+    com="-Difussion_Error-"
+    
+    return imnew, com
+    
+
+#Switch user selection 
+def ImageOp():
+    Usel=int(input("Seleccion el tipo de remuestreo que quiere hacer:\n\n0: Quit\n--Upsampling--\n1: Closest Neighbour\n2: Bilineal\n3: Bicubico\n--Downsampling--\n4: Closest Neighbour\n5: Bilineal\n6: Bicubico\n--Cuantizacion--\n7: Distribucion Uniforme\n8: Dithering aleatorio\n9: Difusion del error\n\nIngrese su entrada: " ))
+    switcher = {
+        1: Up_Neighbour,
+        2: Up_Bilineal,
+        3: Up_Bicubico,
+        4: Dw_Neighbour,
+        5: Dw_Bilineal,
+        6: Dw_Bicubico,
+        7: Cuant_Uniforme,
+        8: Cuant_DitherAleatorio,
+        9: Cuant_DiffError
+    }
+    func = switcher.get(Usel, 0)
+    return func
+
+#Programa
+try:
+    imagen=input("Ingrese la ruta de la imagen a procesar: ")
+    
+    Imagen=Image.open(imagen).convert('L')
+    imbnb=np.array(Imagen).astype(int)
+    wIm, hIm = np.shape(imbnb)
+    
+    func=ImageOp()
+    if func != 0:
+        imnew, com = func(imbnb,wIm,hIm)
+        
+        plt.figure(figsize=(5*2, 5*2), constrained_layout=False)       
+        plt.subplot(2,2,1), plt.imshow(imbnb, cmap="gray"), plt.title("Original")
+        plt.subplot(2,2,2),plt.imshow(imnew, cmap="gray"), plt.title("Procesada")
+        
+        plt.imsave(imagen[-len(imagen):-4]+"-bnb.png", imbnb, cmap="gray")
+        plt.imsave(imagen[-len(imagen):-4]+com+".png", imnew, cmap="gray")
+    else:
+        print("\nQuitting Program...\n") 
+except:
+       print("\nImage not found. Quitting Program...\n")   
