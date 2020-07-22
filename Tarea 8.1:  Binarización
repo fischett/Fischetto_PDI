@@ -1,0 +1,184 @@
+import numpy as np
+import matplotlib.pyplot as plt
+import cv2
+import random
+from operator import itemgetter
+
+# Funciones para OTSU
+def P1(t,freqList,length):
+    P_1=0
+    for x in range(t):
+        P_1+=(freqList[0][x])/length
+    return P_1
+
+def media(t,freqList,length):
+    med=0
+    for x in range(t):
+        med+=x*(freqList[0][x])/length
+    return med
+
+def mediaGlobal(gmax,freqList,length):
+    medGlobal=media(gmax,freqList,length)
+    return medGlobal
+
+def varianzaClases(gmax,t,freqList,length):
+    mG=(mediaGlobal(gmax,freqList,length))
+    p1=(P1(t,freqList,length))
+    m=(media(t,freqList,length))
+    try:
+        varCl=np.divide((mG*p1-m)**2,(p1*(1-p1)))
+    except:
+        varCl=0
+    return varCl
+# Funciones para OTSU
+
+####     OTSU
+def OTSU(pxList, length, imnew, imbnb):
+    freqList=np.histogram(pxList,256)
+    pxMax=int(np.amax(pxList))
+    var=[]
+    for i in range(1,pxMax+1):
+        vari=varianzaClases(pxMax+1,i,freqList,length)
+        if not np.isnan(vari):
+            var.append(vari)
+        else:
+            var.append(0)
+      
+    varMaxV=np.where(var==np.amax(var))
+    varMax=int(np.mean(varMaxV))
+    
+    for x in range(wIm):
+        for y in range(hIm):
+            if imbnb[x,y]<varMax:
+                imnew[x,y]=0
+            else:
+                imnew[x,y]=255
+    return imnew
+####     OTSU
+
+###      dos modas "claro" y "oscuro"
+def dosModas(pxList, length, imnew, imbnb): 
+    freqList=np.array(np.unique(pxList, return_counts=True)).T
+    freqListSorted=sorted(freqList, key=itemgetter(1), reverse=True)
+    first=0
+    second=1
+    if freqListSorted[[first][0]][0]>freqListSorted[[second][0]][0]:
+        claro=freqListSorted[[first][0]][0]
+        oscuro=freqListSorted[[second][0]][0]
+    else:
+        claro=freqListSorted[[second][0]][0]
+        oscuro=freqListSorted[[first][0]][0]    
+    
+    print("claro: "+str(claro))
+    print("Oscuro: "+str(oscuro))
+    
+    for x in range(wIm):
+        for y in range(hIm):
+            if abs(imbnb[x,y]-claro)<=abs(imbnb[x,y]-oscuro):
+                imnew[x,y]=255
+            else:
+                imnew[x,y]=0
+    return imnew
+###      dos modas "claro" y "oscuro"
+        
+#                              binarizado 50/50
+def fiftyfifty(pxList, length, imnew, imbnb):
+    pxListSorted = sorted(pxList)
+    
+    #Mid pixel
+    if length%2==0:
+        pxCent=int(length/2-1)
+    elif length%2==1:
+        pxCent=int((length-1)/2)
+        
+    pxCentVal=pxListSorted[pxCent]
+    
+    #Busco cuantos pixeles por debajo y por arriba hay con el mismo valor central
+    lower=0
+    upper=0
+    sign=-1
+    i=1
+    while(i!=0):
+        if pxListSorted[pxCent+sign*i] == pxCentVal: 
+            if sign==-1:
+                lower+=1
+                i+=1
+            if sign==1:
+                upper+=1
+                i+=1
+        elif sign==1:
+            i=0
+        else:
+            i=1
+            sign=1
+    
+    #Binarizo la imagen 50/50
+    upperNow=0
+    lowerNow=0
+    for x in range(wIm):
+        for y in range(hIm):
+            if imbnb[x,y]<pxCentVal: imnew[x,y]=0
+            elif imbnb[x,y]>pxCentVal: imnew[x,y]=255
+            elif imbnb[x,y]==pxCentVal:
+                if lowerNow<lower and upperNow<upper:
+                    if random.randint(0,1): 
+                        imnew[x,y]=255
+                        upperNow+=1
+                    else: 
+                        imnew[x,y]=0
+                        lowerNow+=1
+                elif lowerNow<lower:
+                    imnew[x,y]=0
+                    lowerNow+=1
+                elif upperNow<upper:
+                    imnew[x,y]=255
+                    upperNow+=1
+    return imnew
+#                              binarizado 50/50
+
+#Switch user selection interpretation of Kernel
+def ImageOp(pxList, length, imnew, imbnb):
+    func=4
+    while func==4:
+        b=int(input("Seleccione el tipo de binarizacion que quiere realizar\n\n0: Salir\n1: OTSU\n2: 2 modas 'claro' y 'oscuro'\n3: 50/50\n\nIngrese su entrada: "))
+        switcher = {
+            0: 0,
+            1: OTSU,
+            2: dosModas,
+            3: fiftyfifty
+        }
+        func = switcher.get(b, 4)
+        if func==4:
+            print("Entrada inexistente. Intente de nuevo")
+            
+        elif func==0:
+            imnew=0
+        else:
+            imnew=func(pxList, length, imnew, imbnb)
+
+    return imnew      
+
+
+Ruta=""
+imagen="montaje.png"
+
+imbnb = cv2.imread(Ruta+imagen,0)
+wIm, hIm = np.shape(imbnb)
+imnew=np.zeros((wIm,hIm))
+
+pxList=np.zeros(wIm*hIm)
+
+i=0
+for x in range(wIm):
+    for y in range(hIm):
+        pxList[i]=imbnb[x,y]
+        i+=1
+length=len(pxList)
+
+imnew=ImageOp(pxList, length, imnew, imbnb)
+if not np.isscalar(imnew):    
+    plt.figure(figsize=(5*2, 5*2), constrained_layout=False)       
+    plt.subplot(1,2,1), plt.imshow(imbnb, cmap="gray"), plt.title("Original")
+    plt.subplot(1,2,2),plt.imshow(imnew, cmap="gray"), plt.title("Procesada")
+else:
+    print("Cerrando programa...")
