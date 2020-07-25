@@ -9,7 +9,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
 import math as mt
-import random
 
 #Upsamplig - Vecino mas cercano
 def Up_Neighbour(imbnb,wIm,hIm):
@@ -181,8 +180,9 @@ def Dw_Bicubico(imbnb,wIm,hIm):
     return imnew, com
 
 #Cuantizacion uniforme
-def Cuant_Uniforme(imbnb,wIm,hIm):
-    res=int(input("Ingrese la resolucion del espectro de colores que desea (1,255): "))
+def Cuant_Uniforme(imbnb,wIm,hIm,res=None):
+    if res==None: # Res!=None if it comes from function Cuant_DitherAleatorio
+        res=int(input("Ingrese la resolucion del espectro de colores que desea (1,255): "))
     if res<1: 
         res=1
         print("\nLa resolucion no puede ser menor a 1. Procesando la imagen con resolucion=1 ...")
@@ -192,40 +192,39 @@ def Cuant_Uniforme(imbnb,wIm,hIm):
     imnew=np.zeros((wIm,hIm))
     for x in range(wIm):
         for y in range(hIm):
-            for n in range(res):
-                if imbnb[x,y] >= 255*n/res and imbnb[x,y] < 255*(n+1)/res:
-                    imnew[x,y]=int(255*n/res)
-    
-    com="-Cuantizacion_Uniforme-res="+str(res)
+#            imnew[x,y]=(np.floor(imbnb[x,y]*res/256)*(255/res)*(res/(res-1))).astype(np.int)
+            imnew[x,y]=(np.floor(imbnb[x,y]*res/256)*(255/(res-1))).astype(np.int)
+            #Cauntification and streching to reach values up to 255
+            #Otherwise, ex: if res=2, it would only take pixel values equal to 0 or 128
+    com="-Cuant_Uniforme-res="+str(res)
     return imnew, com
     
 
 #Cuanizacion Ditherin aleatorio
 def Cuant_DitherAleatorio(imbnb,wIm,hIm):
     print("\nCuanto mas grande sea la imagen, mejor funciona!")
-    imnew=np.zeros((wIm,hIm))
-    for x in range(wIm):
-        for y in range(hIm):
-            if imbnb[x,y] < random.randint(0,255):
-                imnew[x,y]=0
-            else:   imnew[x,y]=255
+    res=int(input("Ingrese la resolucion del espectro de colores que desea (1,255): "))
+    noiseMat=(np.random.rand(wIm,hIm)-1/2)*255/res
+    imWNoise=np.clip((imbnb+noiseMat),0,255)
+    imnew, com=Cuant_Uniforme(imWNoise,wIm,hIm,res)
     
-    com="-Dithering_Aleatorio-"
-    return imnew, com
+    flagDither=True
+    com="-Dithering_Aleatorio-res="+str(res)
+    return imnew, com, flagDither, imNoise
 
 #Difusion del error
 def Cuant_DiffError(imbnb,wIm,hIm):
     print("\nCuanto mas grande sea la imagen, mejor funciona!")
+    res=int(input("Ingrese la resolucion del espectro de colores que desea (1,255): "))
     imnew=np.zeros((wIm,hIm))
     for y in range(hIm):
         error=0
         for x in range(wIm):
             pxErr=imbnb[x,y]+error
-            if pxErr <= 127: imnew[x,y]=0
-            else: imnew[x,y]=255
+            imnew[x,y]=(np.floor(pxErr*res/256)*(255/(res-1))).astype(np.int)
             error+=imbnb[x,y]-imnew[x,y]
-           
-    com="-Difussion_Error-"
+    imnew=imnew*255/np.amax(imnew)  #Normalization because "error" takes pixel values out of 0-255     
+    com="-Difussion_Error-res="+str(res)
     
     return imnew, com
     
@@ -249,23 +248,31 @@ def ImageOp():
 
 #Programa
 try:
-    imagen=input("Ingrese la ruta de la imagen a procesar: ")
+#    imagen=input("Ingrese la ruta de la imagen a procesar: ")
+    imagen="david.jpg"
     
     Imagen=Image.open(imagen).convert('L')
     imbnb=np.array(Imagen).astype(int)
     wIm, hIm = np.shape(imbnb)
     
+    flagDither=False
     func=ImageOp()
     if func != 0:
-        imnew, com = func(imbnb,wIm,hIm)
+        if func==Cuant_DitherAleatorio: 
+            imnew, com ,flagDither, imNoise= func(imbnb,wIm,hIm)
+        else:
+            imnew, com = func(imbnb,wIm,hIm)
         
         plt.figure(figsize=(5*2, 5*2), constrained_layout=False)       
         plt.subplot(2,2,1), plt.imshow(imbnb, cmap="gray"), plt.title("Original")
         plt.subplot(2,2,2),plt.imshow(imnew, cmap="gray"), plt.title("Procesada")
+        if flagDither==True:
+            plt.subplot(2,2,3),plt.imshow(imNoise, cmap="gray"),plt.title("Original con ruido")
         
         plt.imsave(imagen[-len(imagen):-4]+"-bnb.png", imbnb, cmap="gray")
         plt.imsave(imagen[-len(imagen):-4]+com+".png", imnew, cmap="gray")
     else:
         print("\nQuitting Program...\n") 
 except:
-       print("\nImage not found. Quitting Program...\n")   
+       print("\nImage not found. Quitting Program...\n")        
+
