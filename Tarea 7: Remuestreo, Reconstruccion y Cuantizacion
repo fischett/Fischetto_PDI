@@ -183,9 +183,9 @@ def Dw_Bicubico(imbnb,wIm,hIm):
 def Cuant_Uniforme(imbnb,wIm,hIm,res=None):
     if res==None: # Res!=None if it comes from function Cuant_DitherAleatorio
         res=int(input("Ingrese la resolucion del espectro de colores que desea (1,255): "))
-    if res<1: 
-        res=1
-        print("\nLa resolucion no puede ser menor a 1. Procesando la imagen con resolucion=1 ...")
+    if res<2: 
+        res=2
+        print("\nLa resolucion no puede ser menor a 2. Procesando la imagen con resolucion=2 ...")
     elif res>255: 
         res=255
         print("\nLa resolucion no puede ser mayor a 255. Procesando la imagen con resolucion=255 ...")
@@ -216,14 +216,16 @@ def Cuant_DitherAleatorio(imbnb,wIm,hIm):
 def Cuant_DiffError(imbnb,wIm,hIm):
     print("\nCuanto mas grande sea la imagen, mejor funciona!")
     res=int(input("Ingrese la resolucion del espectro de colores que desea (1,255): "))
+    if res<2: 
+        res=2
+        print("\nLa resolucion no puede ser menor a 2. Procesando la imagen con resolucion=2 ...")
     imnew=np.zeros((wIm,hIm))
     for y in range(hIm):
         error=0
         for x in range(wIm):
             pxErr=imbnb[x,y]+error
-            imnew[x,y]=(np.floor(pxErr*res/256)*(255/(res-1))).astype(np.int)
-            error+=imbnb[x,y]-imnew[x,y]
-    imnew=imnew*255/np.amax(imnew)  #Normalization because "error" takes pixel values out of 0-255     
+            imnew[x,y]=np.clip((np.floor(pxErr*res/256)*(255/(res-1))).astype(np.int),0,255)
+            error+=imbnb[x,y]-imnew[x,y]    
     com="-Difussion_Error-res="+str(res)
     
     return imnew, com
