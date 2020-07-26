@@ -3,14 +3,33 @@ from PIL import Image
 import colorsys as cs
 import numpy as np
 
-imagen = Image.open('C:/Users/fisch/Desktop/montaje.png')
-foto = imagen.load()
+#convertir a RGB
+def YIQtoRGB(YIQ,wIm,hIm):
+    RGB=np.zeros((wIm,hIm,3),dtype=np.float64)
+    RGBnorm=np.zeros((wIm,hIm,3),dtype=np.float64)
+    for x in range(wIm):
+        for y in range(hIm):
+            RGBnorm[x,y]=cs.yiq_to_rgb(YIQ[x,y,0],YIQ[x,y,1],YIQ[x,y,2])
+            rgb=[]
+            for i in range(3):
+                rgb.append(int(RGBnorm[x,y,i]*255))
+                
+            RGB[x,y]=rgb
+    return RGB
 
-width, height = imagen.size
-px = width*height
-histoRes=10 #Resolución del histrograma en xlim=[0,1]
+#Convertir a YIQ
+def RGBtoYIQ(im,wIm,hIm):
+    YIQ = np.zeros((wIm,hIm,3),dtype=np.float64)
+    #convertir a YIQ
+    for x in range(wIm):
+        for y in range(hIm):
+            RGBnorm=[]
+            for i in range(3):
+                RGBnorm.append(im[x,y][i]/255)
+            YIQ[x,y]=cs.rgb_to_yiq(RGBnorm[0],RGBnorm[1],RGBnorm[2])
+    return YIQ
 
-def histoSetup(histoRes):
+def histoSetup(histoRes):   #armo la lista (de tamaño histoRes) donde almaceno la frecuencia
     histo=[]
     X=[]
     for i in range(histoRes):
@@ -20,44 +39,61 @@ def histoSetup(histoRes):
 
 def printHisto(px, histo, histoRes, plot):
     histon=[i/px for i in histo]
-    plt.subplot(2,1,plot)
+    plt.subplot(2,2,plot)
     plt.bar(X, histon,-1/histoRes,align='edge') 
     plt.xticks(np.arange(0,1,step=0.1))
     plt.xlim(0,1)
     plt.xlabel('Luminancia Y')
     plt.ylabel('Frecuencia relativa (%)')
+
+im="original.png"
+Imagen1=Image.open(im)
+Imagen1=Imagen1.convert('RGB')
+imagen=np.array(Imagen1)
  
+
+plt.subplot(2,2,3)
+plt.imshow(imagen)
+width, height, d = np.shape(imagen)
+px = width*height
+histoRes=10 #Resolución del histrograma en xlim=[0,1]
     
 #   Original
-X, histo = histoSetup(histoRes)
+X, histo = histoSetup(histoRes) 
+YIQ=RGBtoYIQ(imagen, width, height)
+
 for x in range(width):
     for y in range(height):
-        RGBnorm=[]
-        for i in range(3):
-            RGBnorm.append(foto[x,y][i]/255)
-        YIQ=cs.rgb_to_yiq(RGBnorm[0],RGBnorm[1],RGBnorm[2])
-        
-        for i in range(histoRes):
-            if (YIQ[0] >= X[i]-1/histoRes) and (YIQ[0] < X[i]):
-                histo[i]=histo[i]+1
+        i=int((np.floor(YIQ[x,y,0] * histoRes)))
+        histo[i]+=1
+try:
+    histo[histoRes-1]+=histo[histoRes]
+    histo=histo[:histoRes]
+
+except:
+    None
+    
 plot=1
 printHisto(px, histo, histoRes, plot)
-imagen.show()
 
 #   Histograma modifcado
 X, histo = histoSetup(histoRes)
+YIQnew=YIQ
 for x in range(width):
     for y in range(height):
-        RGBnorm=[]
-        for i in range(3):
-            RGBnorm.append(foto[x,y][i]/255)
-        YIQ=cs.rgb_to_yiq(RGBnorm[0],RGBnorm[1],RGBnorm[2])
-        
-        YIQnew=np.sqrt(YIQ[0]) #    Correccion al histograma
-        
-        for i in range(histoRes):
-            if (YIQnew >= X[i]-1/histoRes) and (YIQnew < X[i]):
-                histo[i]=histo[i]+1
+        YIQnew[x,y,0]=np.sqrt(YIQ[x,y,0]) #    Correccion al histograma
+        i=int((np.floor(YIQnew[x,y,0] * histoRes)))
+        histo[i]+=1
+try:
+    histo[histoRes-1]+=histo[histoRes]
+    histo=histo[:histoRes]
+
+except:
+    None
+
 plot=2
 printHisto(px, histo, histoRes, plot)
-imagen.show()
+RGBnew=YIQtoRGB(YIQnew,width,height).astype("uint8")
+plt.subplot(2,2,4)
+plt.imshow(RGBnew)
+plt.imsave("Correccion por histo - "+im, RGBnew)
