@@ -1,0 +1,113 @@
+import numpy as np
+import matplotlib.pyplot as plt
+import cv2
+import time
+
+
+start_time = time.time()
+
+Ruta=""
+imagen="varita2.png"
+
+
+imbnb = cv2.imread(Ruta+imagen,0)
+wIm, hIm = np.shape(imbnb)
+imOnes = np.zeros((wIm,hIm))
+imTotal=np.zeros((wIm,hIm))
+imPainted=imOnes
+imFinal=imOnes
+thresh=50
+user=1
+plt.figure(figsize=(5*2, 5*2), constrained_layout=False)        
+plt.subplot(2,2,1), plt.imshow(imbnb, "gray")
+plt.show()
+
+while user==1:
+    print("Para segmentar una region de la imagen, se necesita un pixel 'semilla' de partida")
+    entryFlag=True
+    while entryFlag:
+        try:
+            entryFlag=False
+            ySeed = int(input("Ingrese la coordenada 'x' de la semilla [0,"+str(hIm-1)+"]: "))
+            xSeed = int(input("Ingrese la coordenada 'y' de la semilla [0,"+str(wIm-1)+"]: "))
+            if ySeed >= hIm or ySeed < 0: 
+                print("Error: Coordenada 'x' fuera de rango")
+                entryFlag=True
+            if xSeed >= wIm or xSeed < 0:
+                print("Error: Coordenada 'y' fuera de rango")
+                entryFlag=True
+        except:
+            print("\n\n----Entrada equivocada----\n\nNuevo intento...")
+            entryFlag=True
+    
+    actualNumberOfSeeds=1
+    seeds=np.array([[xSeed,ySeed]])
+    imOnes[xSeed,ySeed]=1
+    allSeedsVal=np.array(imbnb[xSeed,ySeed])
+    
+    while actualNumberOfSeeds!=0:
+        meanSeedsVal=np.mean(allSeedsVal)
+        
+        #Cross dilation with threshhold conditional
+        for seed in range(actualNumberOfSeeds): 
+            x=seeds[seed,0]
+            y=seeds[seed,1]
+            allSeedsVal=np.append(allSeedsVal,imbnb[x,y])
+            if y-1 >= 0 and imOnes[x,y-1]!=1:
+                if abs(imbnb[x,y-1]-meanSeedsVal)<thresh:
+                    seeds=np.append(seeds,[[x,y-1]],0) #Saving new seed coordinate
+                    imOnes[x,y-1]=1  #Temporary mask of zones filled
+            if y+1 < hIm and imOnes[x,y+1]!=1:
+                if abs(imbnb[x,y+1]-meanSeedsVal)<thresh:
+                    seeds=np.append(seeds,[[x,y+1]],0)
+                    imOnes[x,y+1]=1
+            if x-1 >=0 and imOnes[x-1,y]!=1:
+                if abs(imbnb[x-1,y]-meanSeedsVal)<thresh:
+                    seeds=np.append(seeds,[[x-1,y]],0)
+                    imOnes[x-1,y]=1
+            if x+1 < wIm and imOnes[x+1,y]!=1:
+                if abs(imbnb[x+1,y]-meanSeedsVal)<thresh:
+                    seeds=np.append(seeds,[[x+1,y]],0)
+                    imOnes[x+1,y]=1
+    
+        seedsToDelete=np.arange(actualNumberOfSeeds) 
+        seeds=np.delete(seeds,seedsToDelete,0) #Deleting seeds already dilated
+    
+        actualNumberOfSeeds=np.shape(seeds)[0]  #Updating Number of new seeds
+    
+    meanSeedsVal=np.mean(allSeedsVal)
+    imPainted=imPainted+imOnes #Updating total mask of different filled zones
+    imOnes=imOnes*meanSeedsVal #Mean-color mask
+    for x in range(wIm):
+        for y in range(hIm):
+            #If neighbouring zones were filled, they may overlap. 
+            #Conditional only leaves the first filled zone.
+            if imTotal[x,y]==0: imTotal[x,y]+=imOnes[x,y] 
+    imOnes=np.zeros((wIm,hIm)) #Resetting temporary mask for next possible new zone-seed
+    
+    plt.figure(figsize=(5*2, 5*2), constrained_layout=False)        
+    plt.subplot(2,2,1), plt.imshow(imbnb, "gray")
+    plt.subplot(2,2,2), plt.imshow(imTotal, "gray")
+    plt.show()
+    try:
+        #Asking for new seed if needed
+        user=int(input("Quiere agregar otra semilla?\n\n0: no\n1: si\n\n Su entrada: "))
+    except:
+        #Invalid entry, ends program up to last seed
+        user=0
+    if user!=0: 
+        user=1
+        
+for x in range(wIm):
+    for y in range(hIm):
+        #Combination between original image and zones previously filled
+        if imPainted[x,y]>=1:
+            imFinal[x,y]=imTotal[x,y]
+        else:
+            imFinal[x,y]=imbnb[x,y]
+
+plt.figure(figsize=(5*2, 5*2), constrained_layout=False)            
+plt.imshow(imFinal, "gray")        
+plt.imsave(imagen[-len(imagen):-3]+"-ColoFill.png", imFinal, cmap="gray")
+
+print("--- %s seconds ---" % (time.time() - start_time))  
