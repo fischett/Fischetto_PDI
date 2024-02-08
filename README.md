@@ -1,2 +1,3 @@
-# Fischetto_PDI
-Códigos para la materia "Procesamiento digital de imágenes" 
+# Fischetto_ProcesamientoDigitalDeImagenes
+SPA: Códigos para la materia "Procesamiento Digital de Imágenes" 
+ENG: Codes for university course "Digital Image Processing"
